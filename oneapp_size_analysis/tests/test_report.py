@@ -1,6 +1,5 @@
 # oneapp_size_analysis/tests/test_report.py
 import json
-import tempfile
 from pathlib import Path
 
 import pytest
