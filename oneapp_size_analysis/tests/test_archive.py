@@ -1,6 +1,4 @@
 import plistlib
-import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -139,7 +137,38 @@ def test_error_multiple_apps(tmp_path):
         discover_components(archive)
 
 
-def test_missing_cfbundleexecutable_skipped(tmp_path, capsys):
+def test_discover_extension_inside_watch(tmp_path):
+    archive = _make_xcarchive(tmp_path)
+    apps = archive / "Products" / "Applications"
+    app = _make_bundle(apps, "MyApp.app", "MyApp")
+    watch_dir = app / "Watch"
+    watch_dir.mkdir()
+    watch = _make_bundle(watch_dir, "MyWatch.app", "MyWatch")
+    plugins_dir = watch / "PlugIns"
+    plugins_dir.mkdir()
+    ext = _make_bundle(plugins_dir, "MyComp.appex", "MyComp")
+    nested_fw_dir = ext / "Frameworks"
+    nested_fw_dir.mkdir()
+    _make_bundle(nested_fw_dir, "Qux.framework", "Qux")
+
+    components = discover_components(archive)
+
+    # Extension inside watch
+    watch_ext = next(
+        c for c in components
+        if c.component_type == "extension" and "Watch" in c.relative_path
+    )
+    assert watch_ext.relative_path == "MyApp.app/Watch/MyWatch.app/PlugIns/MyComp.appex/MyComp"
+
+    # Framework inside that extension
+    watch_ext_fw = next(
+        c for c in components
+        if c.component_type == "framework" and "MyComp" in c.relative_path
+    )
+    assert watch_ext_fw.relative_path == "MyApp.app/Watch/MyWatch.app/PlugIns/MyComp.appex/Frameworks/Qux.framework/Qux"
+
+
+def test_missing_cfbundleexecutable_skipped(tmp_path):
     archive = _make_xcarchive(tmp_path)
     apps = archive / "Products" / "Applications"
     app = apps / "MyApp.app"
