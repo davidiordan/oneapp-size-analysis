@@ -18,15 +18,6 @@ from oneapp_size_analysis.demangle import demangle_symbols
 from oneapp_size_analysis.report import build_report, write_report
 
 
-def _check_tool(tool: str, install_hint: str) -> None:
-    """Exit with a clear error if a required system tool is not found."""
-    if shutil.which(tool) is None:
-        # For xcrun tools, also try xcrun --find
-        if tool == "xcrun":
-            pass  # xcrun itself missing is checked below
-        sys.exit(f"Error: '{tool}' not found. {install_hint}")
-
-
 def _check_dependencies() -> None:
     if shutil.which("otool") is None:
         sys.exit(
@@ -163,9 +154,10 @@ def main() -> None:
     demangle_lookup = demangle_symbols(all_names)
 
     # Build metadata
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    now = datetime.datetime.now()
+    timestamp = now.strftime("%Y%m%d-%H%M%S")
     metadata = {
-        "generated_at": datetime.datetime.now().isoformat(),
+        "generated_at": now.isoformat(),
         "old_archive": str(old_path),
         "new_archive": str(new_path),
         **app_name_meta,
