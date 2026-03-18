@@ -1,8 +1,9 @@
 # oneapp_size_analysis/oneapp_size_analysis/analysis.py
 import collections
+import os
 import re
 import subprocess
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional
 
 from cmpcodesize.compare import read_sizes
 from cmpcodesize.compare import categories as _CATEGORIES
@@ -168,14 +169,12 @@ def analyze_component(
     old_path: str,
     new_path: str,
     warnings: List[str],
-) -> Dict[str, Any]:
+) -> Optional[Dict[str, Any]]:
     """Run both read_sizes passes for an old/new binary pair and return structured diffs.
 
     Returns None if otool fails or the binary is missing; appends a warning in that case.
     Function entries contain 'mangled_name' only — report.py adds 'demangled_name'.
     """
-    import os
-
     for label, path in [("old", old_path), ("new", new_path)]:
         if not os.path.isfile(path):
             warnings.append(f"Warning: binary not found ({label}): {path} — skipping component")

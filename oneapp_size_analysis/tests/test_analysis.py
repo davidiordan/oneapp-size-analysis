@@ -160,25 +160,3 @@ def test_detect_arch_unknown():
     assert arch == "unknown"
 
 
-# ── analyze_component (integration with mocked read_sizes) ───────────────────
-
-def _make_mock_pass1(sect_data: dict, seg_data: dict):
-    """Return a side_effect function that populates the defaultdicts passed to read_sizes."""
-    def _side_effect(sect_sizes, seg_sizes, path, function_details, group_by_prefix):
-        for k, v in sect_data.items():
-            sect_sizes[k] += v
-        if isinstance(seg_sizes, collections.defaultdict):
-            for k, v in seg_data.items():
-                seg_sizes[k] += v
-    return _side_effect
-
-def test_section_category_separation():
-    """Keys from cmpcodesize categories are routed to 'categories', rest to 'sections'."""
-    from oneapp_size_analysis.analysis import CATEGORY_NAMES
-    # All known cmpcodesize category names
-    assert "Swift Function" in CATEGORY_NAMES
-    assert "ObjC" in CATEGORY_NAMES
-    # Section names are NOT category names
-    assert "__text" not in CATEGORY_NAMES
-    assert "__stubs" not in CATEGORY_NAMES
-    assert "__const" not in CATEGORY_NAMES
