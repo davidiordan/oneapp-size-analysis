@@ -1,15 +1,7 @@
 # oneapp_size_analysis/tests/test_demangle.py
 from unittest.mock import patch, MagicMock
-import subprocess
 
 from oneapp_size_analysis.demangle import demangle_symbols
-
-
-def _mock_run(input_text: str, demangled_lines: list):
-    """Return a mock subprocess.run result whose stdout matches demangled_lines."""
-    mock = MagicMock()
-    mock.stdout = "\n".join(demangled_lines) + "\n"
-    return mock
 
 
 def test_demangle_empty():
@@ -72,4 +64,20 @@ def test_demangle_preserves_all_original_keys():
     with patch("subprocess.run", return_value=mock_result):
         result = demangle_symbols(symbols)
 
-    assert "_$s3FooBarV" in result
+    # Both duplicate inputs must appear as keys with the correct demangled value.
+    assert set(result.keys()) == {"_$s3FooBarV"}
+    assert result["_$s3FooBarV"] == "Foo.Bar"
+
+
+def test_demangle_output_line_mismatch_raises():
+    """ValueError is raised when swift-demangle output line count doesn't match input."""
+    import pytest
+
+    symbols = ["_$s3FooBarV", "_$s3BazQuxC"]
+    mock_result = MagicMock()
+    # Only one line returned for two symbols — corrupted output
+    mock_result.stdout = "Foo.Bar\n"
+
+    with patch("subprocess.run", return_value=mock_result):
+        with pytest.raises(ValueError, match="swift-demangle returned"):
+            demangle_symbols(symbols)
