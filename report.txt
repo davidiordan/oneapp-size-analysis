@@ -1,0 +1,414 @@
+{
+  "metadata": {
+    "generated_at": "2026-03-18T20:17:05.599264",
+    "old_archive": "/Users/davidiordan/Desktop/Developer/Octane/build/Octane.xcarchive",
+    "new_archive": "/Users/davidiordan/Desktop/Developer/Octane/new_build/Octane.xcarchive",
+    "app_name": "Octane"
+  },
+  "components": {
+    "Octane.app/Octane": {
+      "type": "main_executable",
+      "relative_path": "Octane.app/Octane",
+      "architecture": "unknown",
+      "segments": {
+        "__DATA": {
+          "old_bytes": 91012,
+          "new_bytes": 91012,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__DATA_CONST": {
+          "old_bytes": 91012,
+          "new_bytes": 91012,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__LINKEDIT": {
+          "old_bytes": 493064,
+          "new_bytes": 537124,
+          "diff_bytes": 44060,
+          "diff_percent": "+8.9%"
+        },
+        "__LLVM_COV": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A"
+        },
+        "__PAGEZERO": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A"
+        },
+        "__TEXT": {
+          "old_bytes": 2498884,
+          "new_bytes": 2589992,
+          "diff_bytes": 91108,
+          "diff_percent": "+3.6%"
+        }
+      },
+      "sections": {
+        "__text": {
+          "old_bytes": 167048,
+          "new_bytes": 183292,
+          "diff_bytes": 16244,
+          "diff_percent": "+9.7%"
+        },
+        "__stubs": {
+          "old_bytes": 4488,
+          "new_bytes": 4716,
+          "diff_bytes": 228,
+          "diff_percent": "+5.1%"
+        },
+        "__const": {
+          "old_bytes": 14252,
+          "new_bytes": 15588,
+          "diff_bytes": 1336,
+          "diff_percent": "+9.4%"
+        },
+        "__cstring": {
+          "old_bytes": 3130,
+          "new_bytes": 3306,
+          "diff_bytes": 176,
+          "diff_percent": "+5.6%"
+        },
+        "__objc_methname": {
+          "old_bytes": 1671,
+          "new_bytes": 1671,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__objc_const": {
+          "old_bytes": 1616,
+          "new_bytes": 1616,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__data": {
+          "old_bytes": 6264,
+          "new_bytes": 6640,
+          "diff_bytes": 376,
+          "diff_percent": "+6.0%"
+        },
+        "__swift5_proto": {
+          "old_bytes": 148,
+          "new_bytes": 156,
+          "diff_bytes": 8,
+          "diff_percent": "+5.4%"
+        },
+        "__common": {
+          "old_bytes": 24,
+          "new_bytes": 24,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__bss": {
+          "old_bytes": 5256,
+          "new_bytes": 5528,
+          "diff_bytes": 272,
+          "diff_percent": "+5.2%"
+        },
+        "__constg_swiftt": {
+          "old_bytes": 2636,
+          "new_bytes": 2800,
+          "diff_bytes": 164,
+          "diff_percent": "+6.2%"
+        },
+        "__eh_frame": {
+          "old_bytes": 2812,
+          "new_bytes": 2956,
+          "diff_bytes": 144,
+          "diff_percent": "+5.1%"
+        },
+        "__got": {
+          "old_bytes": 5352,
+          "new_bytes": 5632,
+          "diff_bytes": 280,
+          "diff_percent": "+5.2%"
+        },
+        "__objc_classlist": {
+          "old_bytes": 40,
+          "new_bytes": 40,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__objc_classname": {
+          "old_bytes": 35,
+          "new_bytes": 35,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__objc_data": {
+          "old_bytes": 856,
+          "new_bytes": 856,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__objc_imageinfo": {
+          "old_bytes": 8,
+          "new_bytes": 8,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__objc_methlist": {
+          "old_bytes": 580,
+          "new_bytes": 580,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__objc_methtype": {
+          "old_bytes": 981,
+          "new_bytes": 981,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__objc_protolist": {
+          "old_bytes": 32,
+          "new_bytes": 32,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__objc_protorefs": {
+          "old_bytes": 16,
+          "new_bytes": 16,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__objc_selrefs": {
+          "old_bytes": 552,
+          "new_bytes": 552,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__oslogstring": {
+          "old_bytes": 133,
+          "new_bytes": 133,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__swift5_assocty": {
+          "old_bytes": 504,
+          "new_bytes": 552,
+          "diff_bytes": 48,
+          "diff_percent": "+9.5%"
+        },
+        "__swift5_builtin": {
+          "old_bytes": 80,
+          "new_bytes": 80,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__swift5_capture": {
+          "old_bytes": 776,
+          "new_bytes": 840,
+          "diff_bytes": 64,
+          "diff_percent": "+8.2%"
+        },
+        "__swift5_entry": {
+          "old_bytes": 8,
+          "new_bytes": 8,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__swift5_fieldmd": {
+          "old_bytes": 1772,
+          "new_bytes": 1988,
+          "diff_bytes": 216,
+          "diff_percent": "+12.2%"
+        },
+        "__swift5_reflstr": {
+          "old_bytes": 2144,
+          "new_bytes": 2416,
+          "diff_bytes": 272,
+          "diff_percent": "+12.7%"
+        },
+        "__swift5_typeref": {
+          "old_bytes": 18706,
+          "new_bytes": 21060,
+          "diff_bytes": 2354,
+          "diff_percent": "+12.6%"
+        },
+        "__swift5_types": {
+          "old_bytes": 120,
+          "new_bytes": 132,
+          "diff_bytes": 12,
+          "diff_percent": "+10.0%"
+        },
+        "__swift_as_entry": {
+          "old_bytes": 40,
+          "new_bytes": 40,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__swift_as_ret": {
+          "old_bytes": 32,
+          "new_bytes": 32,
+          "diff_bytes": 0,
+          "diff_percent": "+0.0%"
+        },
+        "__unwind_info": {
+          "old_bytes": 3080,
+          "new_bytes": 3264,
+          "diff_bytes": 184,
+          "diff_percent": "+6.0%"
+        }
+      },
+      "categories": {
+        "CPP": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "ObjC": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "Partial Apply": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "Protocol Witness": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "Value Witness": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "Type Metadata": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "FuncSigGen Spec": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "Generic Spec": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "Partial Spec": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "FuncSig Spec": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "Generic Function": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "Static Func": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "Swift @objc Func": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "Accessor": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "Getter/Setter": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "Swift Function": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        },
+        "Unknown": {
+          "old_bytes": 0,
+          "new_bytes": 0,
+          "diff_bytes": 0,
+          "diff_percent": "N/A",
+          "old_percent_of_text": "0.0%",
+          "new_percent_of_text": "0.0%"
+        }
+      },
+      "functions": {
+        "added": [],
+        "removed": [],
+        "increased": [],
+        "decreased": [],
+        "unchanged": [],
+        "totals": {
+          "added_bytes": 0,
+          "removed_bytes": 0,
+          "increased_bytes": 0,
+          "decreased_bytes": 0,
+          "net_change_bytes": 0
+        }
+      }
+    }
+  },
+  "components_only_in_old": [],
+  "components_only_in_new": [],
+  "analysis_warnings": []
+}
