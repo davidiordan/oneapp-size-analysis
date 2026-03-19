@@ -54,6 +54,39 @@ def build_report(
     }
 
 
+def build_single_archive_report(
+    metadata: Dict[str, Any],
+    component_results: Dict[str, Tuple[str, Optional[Dict]]],
+    analysis_warnings: List[str],
+    demangle_lookup: Dict[str, str],
+) -> Dict[str, Any]:
+    """Assemble the JSON report dict for single-archive (list) mode.
+
+    component_results maps relative_path_key → (component_type, analysis_dict_or_None).
+    Components where the analysis dict is None (failed) are excluded from 'components'.
+    """
+    components_out: Dict[str, Any] = {}
+
+    for rel_path, (comp_type, analysis) in component_results.items():
+        if analysis is None:
+            continue
+        # Apply demangled names to the flat functions list in-place
+        for entry in analysis.get("functions", []):
+            mangled = entry["mangled_name"]
+            entry["demangled_name"] = demangle_lookup.get(mangled, mangled)
+        components_out[rel_path] = {
+            "type": comp_type,
+            "relative_path": rel_path,
+            **analysis,
+        }
+
+    return {
+        "metadata": metadata,
+        "components": components_out,
+        "analysis_warnings": analysis_warnings,
+    }
+
+
 def write_report(report: Dict[str, Any], output_path: Path) -> None:
     """Write the report dict to output_path as pretty-printed JSON.
     Creates parent directories if they do not exist.

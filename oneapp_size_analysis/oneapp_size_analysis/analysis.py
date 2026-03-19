@@ -165,6 +165,94 @@ def classify_functions(
     }
 
 
+def _split_sect(sect_sizes: collections.defaultdict) -> tuple:
+    """Separate section-name keys from category-name keys in a sect_sizes defaultdict."""
+    sections = {}
+    categories = {}
+    for key, val in sect_sizes.items():
+        if key in CATEGORY_NAMES:
+            categories[key] = val
+        else:
+            sections[key] = val
+    return sections, categories
+
+
+def list_component(
+    path: str,
+    warnings: List[str],
+) -> Optional[Dict[str, Any]]:
+    """Single-archive mode: list absolute sizes for all symbols in one binary.
+
+    Returns None if otool fails or the binary is missing; appends a warning in that case.
+    Function entries contain 'mangled_name' only — report.py adds 'demangled_name'.
+    """
+    if not os.path.isfile(path):
+        warnings.append(f"Warning: binary not found: {path} — skipping component")
+        return None
+
+    arch = detect_arch(path)
+
+    # Pass 1: sections, segments, categories
+    sect = collections.defaultdict(int)
+    seg = collections.defaultdict(int)
+    try:
+        read_sizes(sect, seg, path, function_details=True, group_by_prefix=True)
+    except subprocess.CalledProcessError as exc:
+        warnings.append(f"Warning: otool failed for {path}: {exc} — skipping")
+        return None
+
+    # Pass 2: per-symbol absolute sizes
+    func = collections.defaultdict(int)
+    try:
+        read_sizes(func, [], path, function_details=True, group_by_prefix=False)
+    except subprocess.CalledProcessError as exc:
+        warnings.append(f"Warning: otool failed (pass 2) for {path}: {exc} — skipping")
+        return None
+
+    sections, cats = _split_sect(sect)
+    text_bytes = sections.get("__text", 0)
+
+    # Segments
+    segments = {}
+    for seg_name in sorted(set(seg.keys()) | set(_SEGMENTS)):
+        segments[seg_name] = {"bytes": seg[seg_name]}
+
+    # Sections
+    sections_out: Dict[str, Any] = {}
+    all_sect_keys = set(sections.keys())
+    ordered = [s for s in _KNOWN_SECTIONS if s in all_sect_keys]
+    ordered += sorted(k for k in all_sect_keys if k not in _KNOWN_SECTIONS)
+    for s in ordered:
+        sections_out[s] = {"bytes": sections[s]}
+
+    # Categories
+    categories_out = {}
+    for cat_name, _ in _CATEGORIES:
+        b = cats.get(cat_name, 0)
+        categories_out[cat_name] = {
+            "bytes": b,
+            "percent_of_text": fmt_percent_of_text(b, text_bytes),
+        }
+
+    # Functions — flat list, sorted largest first
+    functions = sorted(
+        [{"mangled_name": name, "bytes": size} for name, size in func.items() if size > 0],
+        key=lambda e: (-e["bytes"], e["mangled_name"]),
+    )
+
+    return {
+        "architecture": arch,
+        "segments": segments,
+        "sections": sections_out,
+        "categories": categories_out,
+        "functions": functions,
+        "totals": {
+            "function_count": len(functions),
+            "total_function_bytes": sum(e["bytes"] for e in functions),
+        },
+    }
+
+
 def analyze_component(
     old_path: str,
     new_path: str,
@@ -205,17 +293,6 @@ def analyze_component(
     except subprocess.CalledProcessError as exc:
         warnings.append(f"Warning: otool failed (pass 2) for {old_path} or {new_path}: {exc} — skipping")
         return None
-
-    # Separate section keys from category keys in sect_sizes
-    def _split_sect(sect_sizes):
-        sections = {}
-        categories = {}
-        for key, val in sect_sizes.items():
-            if key in CATEGORY_NAMES:
-                categories[key] = val
-            else:
-                sections[key] = val
-        return sections, categories
 
     old_sections, old_cats = _split_sect(old_sect)
     new_sections, new_cats = _split_sect(new_sect)

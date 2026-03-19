@@ -13,9 +13,9 @@ from oneapp_size_analysis.archive import (
     discover_components,
     validate_app_names,
 )
-from oneapp_size_analysis.analysis import analyze_component
+from oneapp_size_analysis.analysis import analyze_component, list_component
 from oneapp_size_analysis.demangle import demangle_symbols
-from oneapp_size_analysis.report import build_report, write_report
+from oneapp_size_analysis.report import build_report, build_single_archive_report, write_report
 
 
 def _check_dependencies() -> None:
@@ -58,10 +58,10 @@ def _match_components(
     return matched, only_in_old, only_in_new
 
 
-def _collect_all_mangled_names(
+def _collect_all_mangled_names_diff(
     component_results: Dict[str, Tuple[str, Optional[dict]]],
 ) -> List[str]:
-    """Extract every mangled symbol name from all component analysis results."""
+    """Extract every mangled symbol name from diff-mode component results."""
     names = []
     for _, (_, analysis) in component_results.items():
         if analysis is None:
@@ -73,31 +73,46 @@ def _collect_all_mangled_names(
     return names
 
 
+def _collect_all_mangled_names_list(
+    component_results: Dict[str, Tuple[str, Optional[dict]]],
+) -> List[str]:
+    """Extract every mangled symbol name from list-mode component results."""
+    names = []
+    for _, (_, analysis) in component_results.items():
+        if analysis is None:
+            continue
+        for entry in analysis.get("functions", []):
+            names.append(entry["mangled_name"])
+    return names
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="oneapp-size-analysis",
         description=(
-            "Compare binary size between two XCArchive builds of an iOS application. "
-            "Analyzes every Mach-O component (main executable, frameworks, extensions, "
-            "Watch apps) and writes a detailed JSON report."
+            "Analyze binary size of iOS XCArchive builds. "
+            "Pass two archives to diff them; pass one to list all function sizes."
         ),
     )
     parser.add_argument(
         "old_archive",
         metavar="OLD.xcarchive",
-        help="Path to the baseline XCArchive.",
+        help="Path to the baseline XCArchive, or the only archive when listing sizes.",
     )
     parser.add_argument(
         "new_archive",
         metavar="NEW.xcarchive",
-        help="Path to the new XCArchive to compare against.",
+        nargs="?",
+        default=None,
+        help="Path to the new XCArchive to compare against. Omit to list sizes for OLD.xcarchive.",
     )
     parser.add_argument(
         "--output", "-o",
         metavar="PATH",
         help=(
             "Path for the JSON report. "
-            "Defaults to ./analysis-reports/{AppName}-size-diff-{timestamp}.json"
+            "Defaults to ./analysis-reports/{AppName}-size-diff-{timestamp}.json (diff mode) "
+            "or ./analysis-reports/{AppName}-size-list-{timestamp}.json (list mode)."
         ),
     )
     args = parser.parse_args()
@@ -105,15 +120,72 @@ def main() -> None:
     _check_dependencies()
 
     old_path = Path(args.old_archive).resolve()
-    new_path = Path(args.new_archive).resolve()
+    if not old_path.is_dir():
+        sys.exit(f"Error: XCArchive not found or is not a directory: {old_path}")
 
-    for p in (old_path, new_path):
-        if not p.is_dir():
-            sys.exit(f"Error: XCArchive not found or is not a directory: {p}")
+    if args.new_archive is None:
+        _run_list_mode(old_path, args)
+    else:
+        new_path = Path(args.new_archive).resolve()
+        if not new_path.is_dir():
+            sys.exit(f"Error: XCArchive not found or is not a directory: {new_path}")
+        _run_diff_mode(old_path, new_path, args)
 
+
+def _run_list_mode(archive_path: Path, args: argparse.Namespace) -> None:
     warnings: List[str] = []
 
-    # Discover all components
+    try:
+        components = discover_components(archive_path, warnings=warnings)
+    except ArchiveError as e:
+        sys.exit(f"Error in {archive_path.name}: {e}")
+
+    app_name_meta = validate_app_names(archive_path, archive_path, warnings)
+    app_name = app_name_meta.get("app_name", "app")
+
+    component_results: Dict[str, Tuple[str, Optional[dict]]] = {}
+    total = len(components)
+    for i, comp in enumerate(components, 1):
+        print(f"  [{i}/{total}] Listing {comp.relative_path} ...", file=sys.stderr)
+        analysis = list_component(str(comp.absolute_path), warnings)
+        component_results[comp.relative_path] = (comp.component_type, analysis)
+
+    print("Demangling symbols ...", file=sys.stderr)
+    all_names = _collect_all_mangled_names_list(component_results)
+    demangle_lookup = demangle_symbols(all_names)
+
+    now = datetime.datetime.now()
+    timestamp = now.strftime("%Y%m%d-%H%M%S")
+    metadata = {
+        "generated_at": now.isoformat(),
+        "archive": str(archive_path),
+        "app_name": app_name,
+    }
+
+    report = build_single_archive_report(
+        metadata=metadata,
+        component_results=component_results,
+        analysis_warnings=warnings,
+        demangle_lookup=demangle_lookup,
+    )
+
+    if args.output:
+        output_path = Path(args.output)
+    else:
+        output_path = Path("analysis-reports") / f"{app_name}-size-list-{timestamp}.json"
+
+    write_report(report, output_path)
+
+    listed = sum(1 for _, (_, a) in component_results.items() if a is not None)
+    print(f"Report written to: {output_path}", file=sys.stderr)
+    print(f"Components listed: {listed}/{total}", file=sys.stderr)
+    if warnings:
+        print(f"Warnings: {len(warnings)} (see 'analysis_warnings' in report)", file=sys.stderr)
+
+
+def _run_diff_mode(old_path: Path, new_path: Path, args: argparse.Namespace) -> None:
+    warnings: List[str] = []
+
     try:
         old_components = discover_components(old_path, warnings=warnings)
     except ArchiveError as e:
@@ -124,11 +196,9 @@ def main() -> None:
     except ArchiveError as e:
         sys.exit(f"Error in {new_path.name}: {e}")
 
-    # Build app name metadata
     app_name_meta = validate_app_names(old_path, new_path, warnings)
     app_name = app_name_meta.get("app_name") or app_name_meta.get("old_app_name", "app")
 
-    # Match components
     matched, only_in_old, only_in_new = _match_components(old_components, new_components)
 
     if only_in_old:
@@ -136,7 +206,6 @@ def main() -> None:
     if only_in_new:
         print(f"Components only in new archive: {', '.join(only_in_new)}", file=sys.stderr)
 
-    # Analyze each matched pair
     component_results: Dict[str, Tuple[str, Optional[dict]]] = {}
     total = len(matched)
     for i, (old_comp, new_comp) in enumerate(matched, 1):
@@ -148,12 +217,10 @@ def main() -> None:
         )
         component_results[old_comp.relative_path] = (old_comp.component_type, analysis)
 
-    # Collect and demangle all symbol names in one batch
     print("Demangling symbols ...", file=sys.stderr)
-    all_names = _collect_all_mangled_names(component_results)
+    all_names = _collect_all_mangled_names_diff(component_results)
     demangle_lookup = demangle_symbols(all_names)
 
-    # Build metadata
     now = datetime.datetime.now()
     timestamp = now.strftime("%Y%m%d-%H%M%S")
     metadata = {
@@ -163,7 +230,6 @@ def main() -> None:
         **app_name_meta,
     }
 
-    # Assemble report
     report = build_report(
         metadata=metadata,
         component_results=component_results,
@@ -173,12 +239,10 @@ def main() -> None:
         demangle_lookup=demangle_lookup,
     )
 
-    # Determine output path
     if args.output:
         output_path = Path(args.output)
     else:
-        output_dir = Path("analysis-reports")
-        output_path = output_dir / f"{app_name}-size-diff-{timestamp}.json"
+        output_path = Path("analysis-reports") / f"{app_name}-size-diff-{timestamp}.json"
 
     write_report(report, output_path)
 
