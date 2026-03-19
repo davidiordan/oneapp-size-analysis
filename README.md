@@ -32,6 +32,49 @@ When you only have one build to look at, this mode answers: **what is taking up 
 
 It runs the same deep analysis on every component — segments, sections, language-category breakdown — but instead of diffs it reports absolute sizes. Every symbol in every binary is listed with its byte count and demangled name, sorted largest first so the biggest contributors are immediately visible.
 
+## Building an XCArchive for Analysis
+
+To get meaningful results, the archived binary must **not** be stripped. By default, Xcode strips symbols from Release builds, which causes the functions list to be empty. Pass `STRIP_INSTALLED_PRODUCT=NO` to preserve them.
+
+### Project-based (no workspace)
+
+```bash
+xcodebuild archive \
+  -project YourApp.xcodeproj \
+  -scheme YourScheme \
+  -configuration Release \
+  -archivePath ~/Archives/YourApp.xcarchive \
+  STRIP_INSTALLED_PRODUCT=NO \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGN_IDENTITY="" \
+  CODE_SIGNING_REQUIRED=NO
+```
+
+### Workspace-based (CocoaPods, SPM with generated workspace, etc.)
+
+```bash
+xcodebuild archive \
+  -workspace YourApp.xcworkspace \
+  -scheme YourScheme \
+  -configuration Release \
+  -archivePath ~/Archives/YourApp.xcarchive \
+  STRIP_INSTALLED_PRODUCT=NO \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGN_IDENTITY="" \
+  CODE_SIGNING_REQUIRED=NO
+```
+
+| Flag | Purpose |
+|---|---|
+| `STRIP_INSTALLED_PRODUCT=NO` | **Required.** Keeps function symbols in the binary. Without this, all function lists will be empty. |
+| `CODE_SIGNING_ALLOWED=NO` | Skips code signing — not needed for analysis builds. |
+| `CODE_SIGN_IDENTITY=""` | Clears any signing identity. |
+| `CODE_SIGNING_REQUIRED=NO` | Prevents signing from being required by the target. |
+
+The archive is written to the path you specify with `-archivePath`. Pass that path directly to `oneapp-size-analysis`.
+
+> **Diagnosing a stripped binary:** If your report shows `"architecture": "unknown"`, `__text` has non-zero bytes, but all categories and the functions list are empty, the binary was stripped. Rebuild with `STRIP_INSTALLED_PRODUCT=NO`.
+
 ## Prerequisites
 
 - **macOS** (this tool shells out to macOS-only tools)
