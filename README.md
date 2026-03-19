@@ -1,10 +1,14 @@
 # oneapp-size-analysis
 
-A CLI tool for comparing binary size between two XCArchive builds of an iOS application. It discovers every Mach-O binary component in each archive, diffs their sizes using `cmpcodesize`, demangling all Swift symbols, and writes a detailed JSON report.
+A CLI tool for analyzing binary size in iOS XCArchive builds. Pass one archive to see a full breakdown of what's in it; pass two to diff them and see exactly what changed between builds.
 
 ## What It Does
 
-When you build two versions of an iOS app and archive them, the compiled binaries change in ways that are hard to reason about from source alone. This tool answers the question: **where did the size go?**
+The tool has two modes depending on how many archives you provide.
+
+### Two archives — diff mode
+
+When you build two versions of an iOS app and archive them, the compiled binaries change in ways that are hard to reason about from source alone. This mode answers the question: **where did the size go?**
 
 It analyzes every Mach-O binary component in both archives side by side:
 
@@ -21,6 +25,12 @@ For each matched component pair it produces:
 - **Functions** — every symbol classified as added, removed, grown, shrunk, or unchanged, sorted by impact, with Swift symbols demangled into human-readable form
 
 Components that appear in only one archive (e.g. a framework was added or removed) are listed separately. Non-fatal errors (missing `Info.plist`, `otool` failures on a single binary) are collected as warnings in the report rather than aborting the run.
+
+### One archive — list mode
+
+When you only have one build to look at, this mode answers: **what is taking up space right now?**
+
+It runs the same deep analysis on every component — segments, sections, language-category breakdown — but instead of diffs it reports absolute sizes. Every symbol in every binary is listed with its byte count and demangled name, sorted largest first so the biggest contributors are immediately visible.
 
 ## Prerequisites
 
@@ -66,24 +76,29 @@ pip install -e ./oneapp_size_analysis
 ## Usage
 
 ```bash
+# Diff two archives
 oneapp-size-analysis OLD.xcarchive NEW.xcarchive [--output PATH]
+
+# List sizes for a single archive
+oneapp-size-analysis ARCHIVE.xcarchive [--output PATH]
 ```
 
 | Argument | Description |
 |---|---|
-| `OLD.xcarchive` | Baseline archive (the "before" build) |
-| `NEW.xcarchive` | New archive to compare against (the "after" build) |
+| `OLD.xcarchive` | Baseline archive (the "before" build), or the only archive in list mode |
+| `NEW.xcarchive` | New archive to compare against. Omit to use list mode. |
 | `--output PATH`, `-o PATH` | Optional. Path for the JSON report. |
 
 If `--output` is not provided, the report is written to:
 
 ```
-./analysis-reports/{AppName}-size-diff-{YYYYMMDD-HHMMSS}.json
+./analysis-reports/{AppName}-size-diff-{YYYYMMDD-HHMMSS}.json   # diff mode
+./analysis-reports/{AppName}-size-list-{YYYYMMDD-HHMMSS}.json   # list mode
 ```
 
 The `analysis-reports/` directory is created automatically if it does not exist.
 
-### Example
+### Diff mode example
 
 ```bash
 oneapp-size-analysis \
@@ -104,9 +119,29 @@ Report written to: ~/Desktop/size-report.json
 Components analyzed: 4/4
 ```
 
+### List mode example
+
+```bash
+oneapp-size-analysis ~/Archives/MyApp-1.1.xcarchive
+```
+
+```
+  [1/4] Listing MyApp.app/MyApp ...
+  [2/4] Listing MyApp.app/Frameworks/Foo.framework/Foo ...
+  [3/4] Listing MyApp.app/Frameworks/Bar.framework/Bar ...
+  [4/4] Listing MyApp.app/PlugIns/MyExt.appex/MyExt ...
+Demangling symbols ...
+Report written to: ./analysis-reports/MyApp-size-list-20260318-143000.json
+Components listed: 4/4
+```
+
 ## Output Format
 
-The report is a pretty-printed JSON file. Top-level structure:
+Both modes write a pretty-printed JSON file. The structure differs in the `functions` field and the top-level metadata.
+
+### Diff mode
+
+Top-level structure:
 
 ```json
 {
@@ -125,9 +160,7 @@ The report is a pretty-printed JSON file. Top-level structure:
 
 If the two archives have different app names (e.g. comparing a Debug build to a Release build of a differently named target), `app_name` is replaced with `old_app_name` and `new_app_name`.
 
-### Component Entry
-
-Each key in `components` is the component's relative path within the app bundle (e.g. `MyApp.app/Frameworks/Foo.framework/Foo`):
+Each key in `components` is the component's relative path within the app bundle:
 
 ```json
 "MyApp.app/MyApp": {
@@ -136,22 +169,18 @@ Each key in `components` is the component's relative path within the app bundle 
   "architecture": "arm64",
   "segments": {
     "__TEXT": { "old_bytes": 12582912, "new_bytes": 13107200, "diff_bytes": 524288, "diff_percent": "+4.2%" },
-    "__DATA": { ... },
-    ...
+    "__DATA": { ... }
   },
   "sections": {
     "__text": { "old_bytes": 9437184, "new_bytes": 9961472, "diff_bytes": 524288, "diff_percent": "+5.6%" },
-    "__stubs": { ... },
-    ...
+    "__stubs": { ... }
   },
   "categories": {
     "Swift Function": {
       "old_bytes": 5242880, "new_bytes": 5767168, "diff_bytes": 524288, "diff_percent": "+10.0%",
       "old_percent_of_text": "55.6%", "new_percent_of_text": "57.9%"
     },
-    "ObjC": { ... },
-    "CPP": { ... },
-    ...
+    "ObjC": { ... }
   },
   "functions": {
     "added": [
@@ -177,20 +206,69 @@ Each key in `components` is the component's relative path within the app bundle 
 }
 ```
 
-**Component types:** `main_executable`, `framework`, `extension`, `watch_app`
-
 **Function sort order:**
 - `added` / `removed` — largest first
 - `increased` — largest growth first
 - `decreased` — largest reduction first
 - `unchanged` — largest first
 
+### List mode
+
+Top-level structure:
+
+```json
+{
+  "metadata": {
+    "generated_at": "2026-03-18T14:30:00.123456",
+    "archive": "/path/to/MyApp.xcarchive",
+    "app_name": "MyApp"
+  },
+  "components": { ... },
+  "analysis_warnings": []
+}
+```
+
+Each component has the same `segments`, `sections`, and `categories` fields, but with absolute sizes instead of diffs. The `functions` field is a flat list sorted largest first:
+
+```json
+"MyApp.app/MyApp": {
+  "type": "main_executable",
+  "relative_path": "MyApp.app/MyApp",
+  "architecture": "arm64",
+  "segments": {
+    "__TEXT": { "bytes": 13107200 },
+    "__DATA": { ... }
+  },
+  "sections": {
+    "__text": { "bytes": 9961472 },
+    "__stubs": { ... }
+  },
+  "categories": {
+    "Swift Function": { "bytes": 5767168, "percent_of_text": "57.9%" },
+    "ObjC": { ... }
+  },
+  "functions": [
+    { "mangled_name": "_$s...", "demangled_name": "MyModule.MyClass.bigMethod()", "bytes": 4096 },
+    { "mangled_name": "_$s...", "demangled_name": "MyModule.MyClass.mediumMethod()", "bytes": 2048 },
+    ...
+  ],
+  "totals": {
+    "function_count": 1482,
+    "total_function_bytes": 9437184
+  }
+}
+```
+
+**Component types (both modes):** `main_executable`, `framework`, `extension`, `watch_app`
+
 ## How It Works
 
 ### Pipeline
 
+**Diff mode (two archives):**
+
 ```
-XCArchives
+XCArchives (old + new)
     │
     ▼
 archive.py          Recursively walks both XCArchive bundles,
@@ -203,7 +281,7 @@ Component matching  Pairs old and new components by relative path.
     │
     ▼
 analysis.py         For each matched pair, calls cmpcodesize's
-                    read_sizes() twice:
+  analyze_component read_sizes() twice:
                     - Pass 1 (group_by_prefix=True): segments, sections, categories
                     - Pass 2 (group_by_prefix=False): per-symbol sizes
                     Classifies function changes, computes diffs.
@@ -212,6 +290,29 @@ analysis.py         For each matched pair, calls cmpcodesize's
 demangle.py         Collects every mangled symbol name from all
                     components and sends them to xcrun swift-demangle
                     in a single batch subprocess call.
+    │
+    ▼
+report.py           Applies demangled names, assembles the report
+                    dict, writes JSON.
+```
+
+**List mode (one archive):**
+
+```
+XCArchive
+    │
+    ▼
+archive.py          Recursively walks the XCArchive bundle,
+                    reading Info.plist to find each binary.
+    │
+    ▼
+analysis.py         For each component, calls read_sizes() twice:
+  list_component    - Pass 1 (group_by_prefix=True): segments, sections, categories
+                    - Pass 2 (group_by_prefix=False): per-symbol absolute sizes
+                    Produces a flat function list sorted by size descending.
+    │
+    ▼
+demangle.py         Same batch demangling pass as diff mode.
     │
     ▼
 report.py           Applies demangled names, assembles the report
