@@ -304,6 +304,68 @@ Each component has the same `segments`, `sections`, and `categories` fields, but
 
 **Component types (both modes):** `main_executable`, `framework`, `extension`, `watch_app`
 
+## Reading the Report
+
+### Segments
+
+Mach-O binaries are divided into segments — coarse memory regions with specific access permissions. The tool reports sizes for all segments it finds.
+
+| Segment | Description |
+|---|---|
+| `__TEXT` | Read-only, executable. Contains all machine code and read-only data. **This is the primary segment to minimize** — it maps directly to the code the CPU executes and is counted in your App Store download size. |
+| `__DATA` | Read-write. Contains global variables, ObjC/Swift runtime metadata, and GOT (global offset table) entries. Changes at runtime. |
+| `__DATA_CONST` | Read-write at load time, then made read-only by the linker. Contains ObjC class references, protocol references, and vtables. |
+| `__LINKEDIT` | Linker bookkeeping: symbol table, string table, code signature. Present in unstripped binaries; stripped builds have a much smaller `__LINKEDIT`. |
+| `__LLVM_COV` | LLVM code-coverage instrumentation data. Only present when built with `-fprofile-instr-generate`. Should not appear in Release builds. |
+
+### Sections
+
+Sections are subdivisions within a segment. The important ones in `__TEXT`:
+
+| Section | Segment | Description |
+|---|---|---|
+| `__text` | `__TEXT` | Compiled machine instructions — the actual executable code. This is what all category percentages are measured against. |
+| `__stubs` | `__TEXT` | Stub trampolines for dynamically-linked external calls. Every call to a symbol in a linked dylib goes through a stub. A large `__stubs` section means many unique external symbols are being called. |
+| `__stub_helper` | `__TEXT` | Lazy-binding helpers invoked the first time a stub is called. Part of the dynamic linker machinery. |
+| `__const` | `__TEXT` | Read-only compile-time constants — things like string tables, enum discriminators, and switch dispatch tables. |
+| `__cstring` | `__TEXT` | Null-terminated C string literals. |
+| `__unwind_info` | `__TEXT` | Compact unwind tables used during exception handling and stack unwinding. Grows with function count. |
+| `__objc_methnames` | `__TEXT` | ObjC method name strings stored in the binary. |
+| `__swift5_types` | `__TEXT` | Swift type descriptors. |
+| `__swift5_proto` | `__TEXT` | Swift protocol conformance descriptors. |
+
+### Categories
+
+Categories are `cmpcodesize`'s language-level breakdown of `__text`. They classify each function by what kind of code it is:
+
+| Category | Description |
+|---|---|
+| `Swift Function` | Regular Swift function and method bodies. |
+| `Swift Generic Function` | Specializations of generic functions. Swift generates a separate copy of generic code for each concrete type it's called with — these specializations can be a significant source of binary bloat. |
+| `Swift Protocol Witness` | Protocol conformance witness tables and witness thunks — the machinery that makes protocol dispatch work. |
+| `Swift Value Type Metadata` | Struct and enum type descriptors and metadata accessors. |
+| `Swift Class Metadata` | Class type metadata, vtables, and type descriptors. |
+| `ObjC` | Objective-C method implementations. |
+| `CPP` | C++ function implementations. Typically comes from third-party libraries linked into the binary. |
+| `__stubs` | Dynamic linker stubs (same as the `__stubs` section above — counted here as a category for completeness). |
+| `Unknown` | Functions that don't match any recognized prefix pattern — C functions, hand-written assembly, and anything the category classifier can't identify. |
+
+The `percent_of_text` field for each category shows what fraction of `__text` that category accounts for. In a typical Swift app, `Swift Function` and `Swift Generic Function` together make up the majority of `__text`.
+
+### Can the binary be decompiled back to source?
+
+Partially, but not meaningfully for production Swift code.
+
+The demangling this tool already performs recovers the **full function signature** of every symbol — module, type, method name, argument labels, and return type — from the mangled names in the binary. That's the most actionable information available without a specialized disassembler.
+
+Going further requires tools like [Hopper](https://hopperapp.com), [Ghidra](https://ghidra-sre.org), or Binary Ninja, which can produce pseudo-code at the assembly level. However:
+
+- The compiler performs irreversible transforms (inlining, constant folding, loop unrolling, register allocation) that destroy the original structure.
+- Swift adds an additional layer of complexity via its generic specialization system and runtime protocol dispatch.
+- What you get from a decompiler is approximate assembly-level pseudocode, not Swift or ObjC source you can read and edit.
+
+In practice, the function names and sizes this tool reports — combined with the category breakdown showing how much of `__text` is Swift generics vs plain functions vs ObjC — are enough to identify which areas of the codebase are responsible for binary growth without needing to decompile.
+
 ## How It Works
 
 ### Pipeline
