@@ -16,6 +16,7 @@ from oneapp_size_analysis.archive import (
 from oneapp_size_analysis.analysis import analyze_component, list_component
 from oneapp_size_analysis.demangle import demangle_symbols
 from oneapp_size_analysis.report import build_report, build_single_archive_report, write_report
+from oneapp_size_analysis.linkmap import parse_link_map, LinkMapData
 
 
 def _check_dependencies() -> None:
@@ -115,6 +116,24 @@ def main() -> None:
             "or ./analysis-reports/{AppName}-size-list-{timestamp}.json (list mode)."
         ),
     )
+    parser.add_argument(
+        "--link-map",
+        metavar="PATH",
+        help=(
+            "Path to the linker link map for the archive (list mode). "
+            "Enables per-function library attribution and library size breakdown."
+        ),
+    )
+    parser.add_argument(
+        "--old-link-map",
+        metavar="PATH",
+        help="Path to the linker link map for OLD.xcarchive (diff mode).",
+    )
+    parser.add_argument(
+        "--new-link-map",
+        metavar="PATH",
+        help="Path to the linker link map for NEW.xcarchive (diff mode).",
+    )
     args = parser.parse_args()
 
     _check_dependencies()
@@ -154,6 +173,13 @@ def _run_list_mode(archive_path: Path, args: argparse.Namespace) -> None:
     all_names = _collect_all_mangled_names_list(component_results)
     demangle_lookup = demangle_symbols(all_names)
 
+    # Link map (optional)
+    link_map: Optional[LinkMapData] = None
+    if args.link_map:
+        if not Path(args.link_map).is_file():
+            sys.exit(f"Error: link map not found: {args.link_map}")
+        link_map = parse_link_map(args.link_map, warnings)
+
     now = datetime.datetime.now()
     timestamp = now.strftime("%Y%m%d-%H%M%S")
     metadata = {
@@ -167,6 +193,7 @@ def _run_list_mode(archive_path: Path, args: argparse.Namespace) -> None:
         component_results=component_results,
         analysis_warnings=warnings,
         demangle_lookup=demangle_lookup,
+        link_map=link_map,
     )
 
     if args.output:
@@ -221,6 +248,18 @@ def _run_diff_mode(old_path: Path, new_path: Path, args: argparse.Namespace) -> 
     all_names = _collect_all_mangled_names_diff(component_results)
     demangle_lookup = demangle_symbols(all_names)
 
+    # Link maps (optional)
+    link_map_old: Optional[LinkMapData] = None
+    link_map_new: Optional[LinkMapData] = None
+    if args.old_link_map:
+        if not Path(args.old_link_map).is_file():
+            sys.exit(f"Error: link map not found: {args.old_link_map}")
+        link_map_old = parse_link_map(args.old_link_map, warnings)
+    if args.new_link_map:
+        if not Path(args.new_link_map).is_file():
+            sys.exit(f"Error: link map not found: {args.new_link_map}")
+        link_map_new = parse_link_map(args.new_link_map, warnings)
+
     now = datetime.datetime.now()
     timestamp = now.strftime("%Y%m%d-%H%M%S")
     metadata = {
@@ -237,6 +276,8 @@ def _run_diff_mode(old_path: Path, new_path: Path, args: argparse.Namespace) -> 
         components_only_in_new=only_in_new,
         analysis_warnings=warnings,
         demangle_lookup=demangle_lookup,
+        link_map_old=link_map_old,
+        link_map_new=link_map_new,
     )
 
     if args.output:
