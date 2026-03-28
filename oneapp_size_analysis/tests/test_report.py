@@ -220,3 +220,108 @@ def test_enrich_diff_mode_fallback_for_removed():
     })
     _enrich_functions_with_linkmap(functions, lm_new, lm_old)
     assert functions["removed"][0]["library"] == "PluginA"
+
+
+# ── _build_libraries_block_list ───────────────────────────────────────────────
+
+from oneapp_size_analysis.report import _build_libraries_block_list, _build_libraries_block_diff
+
+
+def _make_link_map_with_libs() -> LinkMapData:
+    symbols = {
+        "_$sPluginALarge": SymbolEntry("PluginA", "A.o", 1000, True),
+        "_$sPluginASmall": SymbolEntry("PluginA", "A.o", 200, True),
+        "_$sPluginBFunc":  SymbolEntry("PluginB", "B.o", 500, True),
+        "_globalVar":      SymbolEntry("PluginA", "A.o", 300, False),  # not in __text
+    }
+    libs = {
+        "PluginA": LibraryEntry(total_bytes=1500, text_bytes=1200, symbol_count=3),
+        "PluginB": LibraryEntry(total_bytes=500, text_bytes=500, symbol_count=1),
+    }
+    return LinkMapData(symbols=symbols, libraries=libs, total_text_bytes=1700)
+
+
+def test_build_libraries_block_list_keys():
+    lm = _make_link_map_with_libs()
+    result = _build_libraries_block_list(lm)
+    assert "PluginA" in result
+    assert "PluginB" in result
+
+def test_build_libraries_block_list_fields():
+    lm = _make_link_map_with_libs()
+    result = _build_libraries_block_list(lm)
+    plugin_a = result["PluginA"]
+    assert plugin_a["bytes"] == 1500
+    assert plugin_a["text_bytes"] == 1200
+    assert plugin_a["symbol_count"] == 3
+    assert plugin_a["percent_of_text"] == "70.6%"  # 1200/1700
+
+def test_build_libraries_block_list_sorted_by_bytes_desc():
+    lm = _make_link_map_with_libs()
+    result = _build_libraries_block_list(lm)
+    keys = list(result.keys())
+    assert keys[0] == "PluginA"  # 1500 bytes > 500
+    assert keys[1] == "PluginB"
+
+def test_build_libraries_block_list_no_object_files_key():
+    lm = _make_link_map_with_libs()
+    result = _build_libraries_block_list(lm)
+    for entry in result.values():
+        assert "object_files" not in entry
+
+
+# ── _build_libraries_block_diff ───────────────────────────────────────────────
+
+def _make_old_link_map() -> LinkMapData:
+    return LinkMapData(
+        symbols={},
+        libraries={
+            "PluginA": LibraryEntry(total_bytes=1000, text_bytes=1000, symbol_count=10),
+            "PluginB": LibraryEntry(total_bytes=500, text_bytes=500, symbol_count=5),
+        },
+        total_text_bytes=1500,
+    )
+
+def _make_new_link_map() -> LinkMapData:
+    return LinkMapData(
+        symbols={},
+        libraries={
+            "PluginA": LibraryEntry(total_bytes=1200, text_bytes=1200, symbol_count=12),
+            "NewPlugin": LibraryEntry(total_bytes=800, text_bytes=800, symbol_count=8),
+        },
+        total_text_bytes=2000,
+    )
+
+def test_build_libraries_block_diff_union_of_libs():
+    result = _build_libraries_block_diff(_make_old_link_map(), _make_new_link_map())
+    assert "PluginA" in result
+    assert "PluginB" in result   # only in old
+    assert "NewPlugin" in result  # only in new
+
+def test_build_libraries_block_diff_fields_existing():
+    result = _build_libraries_block_diff(_make_old_link_map(), _make_new_link_map())
+    plugin_a = result["PluginA"]
+    assert plugin_a["old_bytes"] == 1000
+    assert plugin_a["new_bytes"] == 1200
+    assert plugin_a["diff_bytes"] == 200
+    assert plugin_a["diff_percent"] == "+20.0%"
+    assert plugin_a["old_symbol_count"] == 10
+    assert plugin_a["new_symbol_count"] == 12
+
+def test_build_libraries_block_diff_new_library_na_percent():
+    result = _build_libraries_block_diff(_make_old_link_map(), _make_new_link_map())
+    new_plugin = result["NewPlugin"]
+    assert new_plugin["old_bytes"] == 0
+    assert new_plugin["new_bytes"] == 800
+    assert new_plugin["diff_percent"] == "N/A"
+    assert new_plugin["old_symbol_count"] == 0
+    assert new_plugin["new_symbol_count"] == 8
+
+def test_build_libraries_block_diff_sorted_by_abs_diff_desc():
+    result = _build_libraries_block_diff(_make_old_link_map(), _make_new_link_map())
+    keys = list(result.keys())
+    # NewPlugin diff=800, PluginA diff=200, PluginB diff=-500 (abs=500)
+    # Sorted: NewPlugin(800) > PluginB(500) > PluginA(200)
+    assert keys[0] == "NewPlugin"
+    assert keys[1] == "PluginB"
+    assert keys[2] == "PluginA"
