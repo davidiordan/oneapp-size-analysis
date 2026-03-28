@@ -325,3 +325,116 @@ def test_build_libraries_block_diff_sorted_by_abs_diff_desc():
     assert keys[0] == "NewPlugin"
     assert keys[1] == "PluginB"
     assert keys[2] == "PluginA"
+
+
+# ── build_single_archive_report with link map ─────────────────────────────────
+
+from oneapp_size_analysis.report import build_single_archive_report
+
+
+def _make_list_component_analysis() -> dict:
+    return {
+        "architecture": "arm64",
+        "segments": {"__TEXT": {"bytes": 10000}},
+        "sections": {"__text": {"bytes": 8000}},
+        "categories": {"Swift Function": {"bytes": 5000, "percent_of_text": "62.5%"}},
+        "functions": [
+            {"mangled_name": "_$sPluginAFunc", "bytes": 512},
+            {"mangled_name": "_unknown", "bytes": 128},
+        ],
+        "totals": {"function_count": 2, "total_function_bytes": 640},
+    }
+
+
+def test_build_single_archive_report_with_link_map():
+    lm = _make_link_map_data({
+        "_$sPluginAFunc": SymbolEntry("PluginA", "A.o", 512, True),
+    })
+    lm.libraries["PluginA"] = LibraryEntry(total_bytes=512, text_bytes=512, symbol_count=1)
+    lm.total_text_bytes = 512
+    component_results = {"MyApp.app/MyApp": ("main_executable", _make_list_component_analysis())}
+    report = build_single_archive_report(
+        metadata={"app_name": "MyApp", "generated_at": "t", "archive": "/a"},
+        component_results=component_results,
+        analysis_warnings=[],
+        demangle_lookup={},
+        link_map=lm,
+    )
+    comp = report["components"]["MyApp.app/MyApp"]
+    assert comp["functions"][0]["library"] == "PluginA"
+    assert "library" not in comp["functions"][1]  # _unknown not in link map
+    assert "libraries" in comp
+    assert "PluginA" in comp["libraries"]
+
+def test_build_single_archive_report_without_link_map():
+    """Existing behavior unchanged when link_map=None."""
+    component_results = {"MyApp.app/MyApp": ("main_executable", _make_list_component_analysis())}
+    report = build_single_archive_report(
+        metadata={"app_name": "MyApp", "generated_at": "t", "archive": "/a"},
+        component_results=component_results,
+        analysis_warnings=[],
+        demangle_lookup={},
+    )
+    comp = report["components"]["MyApp.app/MyApp"]
+    assert "library" not in comp["functions"][0]
+    assert "libraries" not in comp
+
+
+# ── build_report with link maps ───────────────────────────────────────────────
+
+from oneapp_size_analysis.report import build_report as _build_report_fn
+
+
+def test_build_report_with_both_link_maps():
+    lm_old = _make_link_map_with_libs()
+    lm_new = LinkMapData(
+        symbols={"_$sAddedFunc": SymbolEntry("PluginA", "A.o", 64, True)},
+        libraries={"PluginA": LibraryEntry(total_bytes=1600, text_bytes=1300, symbol_count=4)},
+        total_text_bytes=1800,
+    )
+    analysis = _make_component_analysis()
+    component_results = {"MyApp.app/MyApp": ("main_executable", analysis)}
+    report = _build_report_fn(
+        metadata={"app_name": "MyApp", "old_archive": "/old", "new_archive": "/new", "generated_at": "t"},
+        component_results=component_results,
+        components_only_in_old=[],
+        components_only_in_new=[],
+        analysis_warnings=[],
+        demangle_lookup={},
+        link_map_old=lm_old,
+        link_map_new=lm_new,
+    )
+    comp = report["components"]["MyApp.app/MyApp"]
+    assert "libraries" in comp
+    assert "PluginA" in comp["libraries"]
+
+def test_build_report_with_one_link_map_no_libraries_block():
+    """With only new link map, enrichment runs but no libraries block emitted."""
+    lm_new = _make_link_map_with_libs()
+    analysis = _make_component_analysis()
+    component_results = {"MyApp.app/MyApp": ("main_executable", analysis)}
+    report = _build_report_fn(
+        metadata={"app_name": "MyApp", "old_archive": "/old", "new_archive": "/new", "generated_at": "t"},
+        component_results=component_results,
+        components_only_in_old=[],
+        components_only_in_new=[],
+        analysis_warnings=[],
+        demangle_lookup={},
+        link_map_new=lm_new,
+    )
+    comp = report["components"]["MyApp.app/MyApp"]
+    assert "libraries" not in comp
+
+def test_build_report_without_link_maps():
+    """Existing behavior: no link map args → no libraries block, no enrichment."""
+    component_results = {"MyApp.app/MyApp": ("main_executable", _make_component_analysis())}
+    report = _build_report_fn(
+        metadata={"app_name": "MyApp", "old_archive": "/old", "new_archive": "/new", "generated_at": "t"},
+        component_results=component_results,
+        components_only_in_old=[],
+        components_only_in_new=[],
+        analysis_warnings=[],
+        demangle_lookup={},
+    )
+    comp = report["components"]["MyApp.app/MyApp"]
+    assert "libraries" not in comp

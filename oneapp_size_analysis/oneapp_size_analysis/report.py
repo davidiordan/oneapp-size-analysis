@@ -97,19 +97,26 @@ def build_report(
     components_only_in_new: List[str],
     analysis_warnings: List[str],
     demangle_lookup: Dict[str, str],
+    link_map_old: Optional[LinkMapData] = None,
+    link_map_new: Optional[LinkMapData] = None,
 ) -> Dict[str, Any]:
-    """Assemble the final JSON report dict.
-
-    component_results maps relative_path_key → (component_type, analysis_dict_or_None).
-    Components where the analysis dict is None (failed) are excluded from 'components'.
-    """
+    """Assemble the final JSON report dict."""
     components_out: Dict[str, Any] = {}
 
     for rel_path, (comp_type, analysis) in component_results.items():
         if analysis is None:
             continue
-        # Apply demangled names in-place (mutates the analysis dict)
+        # Apply demangled names in-place
         apply_demangled_names(analysis, demangle_lookup)
+        # Apply link map attribution in-place (after demangling)
+        if link_map_old is not None or link_map_new is not None:
+            primary = link_map_new if link_map_new is not None else link_map_old
+            fallback = link_map_old if link_map_new is not None else None
+            _enrich_functions_with_linkmap(analysis["functions"], primary, fallback)
+            if link_map_old is not None and link_map_new is not None:
+                analysis["libraries"] = _build_libraries_block_diff(
+                    link_map_old, link_map_new
+                )
         components_out[rel_path] = {
             "type": comp_type,
             "relative_path": rel_path,
@@ -130,12 +137,9 @@ def build_single_archive_report(
     component_results: Dict[str, Tuple[str, Optional[Dict]]],
     analysis_warnings: List[str],
     demangle_lookup: Dict[str, str],
+    link_map: Optional[LinkMapData] = None,
 ) -> Dict[str, Any]:
-    """Assemble the JSON report dict for single-archive (list) mode.
-
-    component_results maps relative_path_key → (component_type, analysis_dict_or_None).
-    Components where the analysis dict is None (failed) are excluded from 'components'.
-    """
+    """Assemble the JSON report dict for single-archive (list) mode."""
     components_out: Dict[str, Any] = {}
 
     for rel_path, (comp_type, analysis) in component_results.items():
@@ -145,6 +149,10 @@ def build_single_archive_report(
         for entry in analysis.get("functions", []):
             mangled = entry["mangled_name"]
             entry["demangled_name"] = demangle_lookup.get(mangled, mangled)
+        # Apply link map attribution in-place (after demangling)
+        if link_map is not None:
+            _enrich_functions_with_linkmap(analysis["functions"], link_map)
+            analysis["libraries"] = _build_libraries_block_list(link_map)
         components_out[rel_path] = {
             "type": comp_type,
             "relative_path": rel_path,
