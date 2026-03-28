@@ -147,3 +147,76 @@ def test_write_report_indented(tmp_path):
     raw = output_path.read_text()
     # indent=2 means newlines present
     assert "\n" in raw
+
+
+# ── _enrich_functions_with_linkmap ────────────────────────────────────────────
+
+from oneapp_size_analysis.linkmap import LinkMapData, LibraryEntry, SymbolEntry
+from oneapp_size_analysis.report import _enrich_functions_with_linkmap
+
+
+def _make_link_map_data(symbols: dict) -> LinkMapData:
+    """Build a minimal LinkMapData for testing."""
+    libraries = {}
+    for sym in symbols.values():
+        if sym.library not in libraries:
+            libraries[sym.library] = LibraryEntry(0, 0, 0)
+        libraries[sym.library].total_bytes += sym.linker_bytes
+        libraries[sym.library].symbol_count += 1
+        if sym.in_text:
+            libraries[sym.library].text_bytes += sym.linker_bytes
+    return LinkMapData(symbols=symbols, libraries=libraries, total_text_bytes=1000)
+
+
+def test_enrich_list_mode_adds_library_and_source():
+    functions = [
+        {"mangled_name": "_$sPluginAFunc", "bytes": 100},
+        {"mangled_name": "_unknown", "bytes": 50},
+    ]
+    lm = _make_link_map_data({
+        "_$sPluginAFunc": SymbolEntry("PluginA", "Feature.o", 100, True),
+    })
+    _enrich_functions_with_linkmap(functions, lm)
+    assert functions[0]["library"] == "PluginA"
+    assert functions[0]["source_file"] == "Feature.o"
+
+def test_enrich_list_mode_missing_symbol_no_null():
+    functions = [{"mangled_name": "_unknown", "bytes": 50}]
+    lm = _make_link_map_data({})
+    _enrich_functions_with_linkmap(functions, lm)
+    assert "library" not in functions[0]
+    assert "source_file" not in functions[0]
+
+def test_enrich_diff_mode_all_buckets():
+    functions = {
+        "added":     [{"mangled_name": "_$sAdded", "new_bytes": 64}],
+        "removed":   [{"mangled_name": "_$sRemoved", "old_bytes": 32}],
+        "increased": [{"mangled_name": "_$sGrown", "old_bytes": 100, "new_bytes": 150, "diff_bytes": 50, "diff_percent": "+50.0%"}],
+        "decreased": [],
+        "unchanged": [{"mangled_name": "_$sStable", "bytes": 80}],
+        "totals": {},
+    }
+    lm = _make_link_map_data({
+        "_$sAdded":   SymbolEntry("PluginA", "A.o", 64, True),
+        "_$sRemoved": SymbolEntry("PluginB", "B.o", 32, True),
+        "_$sGrown":   SymbolEntry("PluginA", "A.o", 150, True),
+        "_$sStable":  SymbolEntry("PluginA", "A.o", 80, True),
+    })
+    _enrich_functions_with_linkmap(functions, lm)
+    assert functions["added"][0]["library"] == "PluginA"
+    assert functions["removed"][0]["library"] == "PluginB"
+    assert functions["increased"][0]["library"] == "PluginA"
+    assert functions["unchanged"][0]["library"] == "PluginA"
+
+def test_enrich_diff_mode_fallback_for_removed():
+    """Removed symbols exist only in old binary — found via fallback link map."""
+    functions = {
+        "added": [], "removed": [{"mangled_name": "_$sOldOnly", "old_bytes": 32}],
+        "increased": [], "decreased": [], "unchanged": [], "totals": {},
+    }
+    lm_new = _make_link_map_data({})  # new map doesn't have the removed symbol
+    lm_old = _make_link_map_data({
+        "_$sOldOnly": SymbolEntry("PluginA", "A.o", 32, True),
+    })
+    _enrich_functions_with_linkmap(functions, lm_new, lm_old)
+    assert functions["removed"][0]["library"] == "PluginA"

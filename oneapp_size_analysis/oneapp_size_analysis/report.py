@@ -1,7 +1,8 @@
 # oneapp_size_analysis/oneapp_size_analysis/report.py
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
+from oneapp_size_analysis.linkmap import LinkMapData
 
 
 def apply_demangled_names(
@@ -17,6 +18,33 @@ def apply_demangled_names(
         for entry in funcs.get(bucket, []):
             mangled = entry["mangled_name"]
             entry["demangled_name"] = lookup.get(mangled, mangled)
+
+
+def _enrich_functions_with_linkmap(
+    functions: Union[list, dict],
+    link_map_primary: LinkMapData,
+    link_map_fallback: Optional[LinkMapData] = None,
+) -> None:
+    """Mutate function entries in-place: add library and source_file from link map.
+
+    Works on both flat lists (list mode) and bucketed dicts (diff mode).
+    Symbols not found in either map are left unchanged — no null fields added.
+    """
+    if isinstance(functions, list):
+        entries = functions
+    else:
+        entries = []
+        for bucket in ("added", "removed", "increased", "decreased", "unchanged"):
+            entries.extend(functions.get(bucket, []))
+
+    for entry in entries:
+        name = entry["mangled_name"]
+        sym = link_map_primary.symbols.get(name)
+        if sym is None and link_map_fallback is not None:
+            sym = link_map_fallback.symbols.get(name)
+        if sym is not None:
+            entry["library"] = sym.library
+            entry["source_file"] = sym.source_file
 
 
 def build_report(
