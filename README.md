@@ -44,6 +44,7 @@ xcodebuild archive \
   -scheme YourScheme \
   -configuration Release \
   -archivePath ~/Archives/YourApp.xcarchive \
+  LD_MAP_FILE=~/Archives/YourApp-linkmap.txt \
   STRIP_INSTALLED_PRODUCT=NO \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGN_IDENTITY="" \
@@ -58,6 +59,7 @@ xcodebuild archive \
   -scheme YourScheme \
   -configuration Release \
   -archivePath ~/Archives/YourApp.xcarchive \
+  LD_MAP_FILE=~/Archives/YourApp-linkmap.txt \
   STRIP_INSTALLED_PRODUCT=NO \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGN_IDENTITY="" \
@@ -66,6 +68,7 @@ xcodebuild archive \
 
 | Flag | Purpose |
 |---|---|
+| `LD_MAP_FILE=~/Archives/YourApp-linkmap.txt` | Optional but recommended. Writes the linker link map to a known path so it can be passed to the tool for library attribution. |
 | `STRIP_INSTALLED_PRODUCT=NO` | **Required.** Keeps function symbols in the binary. Without this, all function lists will be empty. |
 | `CODE_SIGNING_ALLOWED=NO` | Skips code signing — not needed for analysis builds. |
 | `CODE_SIGN_IDENTITY=""` | Clears any signing identity. |
@@ -74,6 +77,89 @@ xcodebuild archive \
 The archive is written to the path you specify with `-archivePath`. Pass that path directly to `oneapp-size-analysis`.
 
 > **Diagnosing a stripped binary:** If your report shows `"architecture": "unknown"`, `__text` has non-zero bytes, but all categories and the functions list are empty, the binary was stripped. Rebuild with `STRIP_INSTALLED_PRODUCT=NO`.
+
+## Link Map Support
+
+When you provide a link map alongside an archive, the tool can attribute each function to the library that contributed it — showing you not just that a 4KB function exists, but that it came from `PluginA`.
+
+This is the key feature for tracking whether individual feature plugins are growing between builds.
+
+### Providing a link map
+
+**List mode:**
+
+```bash
+oneapp-size-analysis ARCHIVE.xcarchive \
+  --link-map ~/Archives/YourApp-linkmap.txt
+```
+
+**Diff mode:**
+
+```bash
+oneapp-size-analysis OLD.xcarchive NEW.xcarchive \
+  --old-link-map ~/Archives/Old-linkmap.txt \
+  --new-link-map ~/Archives/New-linkmap.txt
+```
+
+Both `--old-link-map` and `--new-link-map` are independent — you can provide one without the other.
+
+### What the link map adds to the report
+
+Each function entry gains two new fields when its symbol is found in the link map:
+
+```json
+{
+  "mangled_name": "_$s7PluginA11SomeFeatureC6doThingyyF",
+  "demangled_name": "PluginA.SomeFeature.doThing()",
+  "bytes": 4096,
+  "library": "PluginA",
+  "source_file": "SomeFeature.o"
+}
+```
+
+A `libraries` block is also added to each component, showing total bytes per library:
+
+**List mode:**
+```json
+"libraries": {
+  "PluginA": {
+    "bytes": 610000,
+    "text_bytes": 524288,
+    "symbol_count": 142,
+    "percent_of_text": "5.3%"
+  }
+}
+```
+
+`bytes` = all symbols from this library across all sections.
+`text_bytes` = symbols in `__TEXT __text` only (executable code).
+`percent_of_text` = `text_bytes` as a fraction of total `__text` bytes.
+
+**Diff mode** (when both link maps provided):
+```json
+"libraries": {
+  "PluginA": {
+    "old_bytes": 524288,
+    "new_bytes": 573440,
+    "diff_bytes": 49152,
+    "diff_percent": "+9.4%",
+    "old_symbol_count": 142,
+    "new_symbol_count": 156
+  }
+}
+```
+
+### Library name extraction
+
+For internal Xcode targets, the tool extracts the library name from the `.build` directory in the object file path:
+
+```
+/DerivedData/.../PluginA.build/Objects-normal/arm64/SomeFeature.o  →  "PluginA"
+```
+
+### A note on size accuracy
+
+The `functions` list uses sizes computed by `cmpcodesize` via address arithmetic — these are **approximations** (each symbol's size is estimated as the gap to the next symbol's address). The `libraries` block uses sizes from the link map, which are the **authoritative sizes** as determined by the linker. Minor differences between per-function `bytes` values and library `bytes` totals are expected and normal.
 
 ## Prerequisites
 
@@ -120,10 +206,10 @@ pip install -e ./oneapp_size_analysis
 
 ```bash
 # Diff two archives
-oneapp-size-analysis OLD.xcarchive NEW.xcarchive [--output PATH]
+oneapp-size-analysis OLD.xcarchive NEW.xcarchive [--output PATH] [--old-link-map PATH] [--new-link-map PATH]
 
 # List sizes for a single archive
-oneapp-size-analysis ARCHIVE.xcarchive [--output PATH]
+oneapp-size-analysis ARCHIVE.xcarchive [--output PATH] [--link-map PATH]
 ```
 
 | Argument | Description |
@@ -131,6 +217,9 @@ oneapp-size-analysis ARCHIVE.xcarchive [--output PATH]
 | `OLD.xcarchive` | Baseline archive (the "before" build), or the only archive in list mode |
 | `NEW.xcarchive` | New archive to compare against. Omit to use list mode. |
 | `--output PATH`, `-o PATH` | Optional. Path for the JSON report. |
+| `--link-map PATH` | Optional. Path to the linker link map (list mode). Enables per-function library attribution and library size breakdown. |
+| `--old-link-map PATH` | Optional. Path to the linker link map for OLD.xcarchive (diff mode). |
+| `--new-link-map PATH` | Optional. Path to the linker link map for NEW.xcarchive (diff mode). |
 
 If `--output` is not provided, the report is written to:
 
@@ -469,11 +558,14 @@ oneapp_size_analysis/
 │   ├── archive.py     XCArchive traversal and component discovery
 │   ├── analysis.py    Size diff computation via cmpcodesize
 │   ├── demangle.py    Batch Swift symbol demangling
+│   ├── linkmap.py     Linker link map parsing and library attribution
 │   └── report.py      JSON report assembly and file writing
 └── tests/
     ├── test_archive.py
     ├── test_analysis.py
     ├── test_demangle.py
+    ├── test_linkmap.py
+    ├── test_main.py
     └── test_report.py
 ```
 
