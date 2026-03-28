@@ -62,3 +62,46 @@ def test_parse_object_files_large_index():
     result = _parse_object_files(lines)
     assert 42 in result
     assert result[42][1] == "PluginC"
+
+
+# ── _parse_sections + _in_text_section ────────────────────────────────────────
+
+from oneapp_size_analysis.linkmap import _parse_sections, _in_text_section
+
+def test_parse_sections_basic():
+    lines = [
+        "# Address    Size        Segment Section",
+        "0x100003C64  0x000037E4  __TEXT  __text",
+        "0x100007448  0x00000200  __TEXT  __stubs",
+        "0x100010000  0x00001000  __DATA  __data",
+    ]
+    result = _parse_sections(lines)
+    assert len(result) == 3
+    assert result[0] == (0x100003C64, 0x000037E4, "__TEXT", "__text")
+    assert result[1] == (0x100007448, 0x00000200, "__TEXT", "__stubs")
+    assert result[2] == (0x100010000, 0x00001000, "__DATA", "__data")
+
+def test_parse_sections_skips_comment_lines():
+    lines = ["# Address    Size", "0x100003C64  0x00001000  __TEXT  __text"]
+    result = _parse_sections(lines)
+    assert len(result) == 1
+
+def test_in_text_section_true():
+    sections = [(0x100003C64, 0x1000, "__TEXT", "__text")]
+    assert _in_text_section(0x100003C64, sections) is True
+    assert _in_text_section(0x100003C64 + 0x500, sections) is True
+
+def test_in_text_section_boundary_exclusive():
+    sections = [(0x100003C64, 0x1000, "__TEXT", "__text")]
+    assert _in_text_section(0x100003C64 + 0x1000, sections) is False
+
+def test_in_text_section_false_wrong_section():
+    sections = [(0x100003C64, 0x1000, "__TEXT", "__stubs")]
+    assert _in_text_section(0x100003C64, sections) is False
+
+def test_in_text_section_false_wrong_segment():
+    sections = [(0x100003C64, 0x1000, "__DATA", "__text")]
+    assert _in_text_section(0x100003C64, sections) is False
+
+def test_in_text_section_empty():
+    assert _in_text_section(0x100003C64, []) is False
