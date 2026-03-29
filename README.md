@@ -580,3 +580,7 @@ python -m pytest tests/ -v
 ```
 
 All tests use mocks or `tmp_path` fixtures and do not require real XCArchives or system binaries.
+
+## Helpful References
+[Emerge Tools Documentation](https://docs.emergetools.com/docs/linkmaps)
+[Generating linmaps and uploading to Emerge](https://www.roger.ml/p/emerge-linkmaps)
