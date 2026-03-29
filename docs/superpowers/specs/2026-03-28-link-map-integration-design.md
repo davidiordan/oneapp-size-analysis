@@ -26,7 +26,7 @@ The `libraries` aggregation block uses link map sizes (authoritative). The `func
 
 ## Generating a Link Map
 
-Add `GENERATE_LINKER_MAP=YES` (and optionally `LINKER_MAP_FILE`) to the `xcodebuild archive` command to write the link map alongside the archive:
+Add `LD_GENERATE_MAP_FILE=YES` (and optionally `LD_MAP_FILE_PATH`) to the `xcodebuild archive` command to write the link map alongside the archive:
 
 ```bash
 xcodebuild archive \
@@ -34,8 +34,8 @@ xcodebuild archive \
   -scheme YourScheme \
   -configuration Release \
   -archivePath ~/Archives/YourApp.xcarchive \
-  GENERATE_LINKER_MAP=YES \
-  LINKER_MAP_FILE=~/Archives/YourApp-linkmap.txt \
+  LD_GENERATE_MAP_FILE=YES \
+  LD_MAP_FILE_PATH=~/Archives/YourApp-linkmap.txt \
   STRIP_INSTALLED_PRODUCT=NO \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGN_IDENTITY="" \

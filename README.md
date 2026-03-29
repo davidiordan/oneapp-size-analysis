@@ -44,8 +44,8 @@ xcodebuild archive \
   -scheme YourScheme \
   -configuration Release \
   -archivePath ~/Archives/YourApp.xcarchive \
-  GENERATE_LINKER_MAP=YES \
-  LINKER_MAP_FILE=~/Archives/YourApp-linkmap.txt \
+  LD_GENERATE_MAP_FILE=YES \
+  LD_MAP_FILE_PATH=~/Archives/YourApp-linkmap.txt \
   STRIP_INSTALLED_PRODUCT=NO \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGN_IDENTITY="" \
@@ -60,8 +60,8 @@ xcodebuild archive \
   -scheme YourScheme \
   -configuration Release \
   -archivePath ~/Archives/YourApp.xcarchive \
-  GENERATE_LINKER_MAP=YES \
-  LINKER_MAP_FILE=~/Archives/YourApp-linkmap.txt \
+  LD_GENERATE_MAP_FILE=YES \
+  LD_MAP_FILE_PATH=~/Archives/YourApp-linkmap.txt \
   STRIP_INSTALLED_PRODUCT=NO \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGN_IDENTITY="" \
@@ -70,8 +70,8 @@ xcodebuild archive \
 
 | Flag | Purpose |
 |---|---|
-| `GENERATE_LINKER_MAP=YES` | Optional but recommended. Instructs the linker to write a link map file. Required for library attribution. |
-| `LINKER_MAP_FILE=~/Archives/YourApp-linkmap.txt` | Optional. Path for the link map. If omitted, Xcode writes it to a default path in DerivedData (`Octane-LinkMap-normal-arm64.txt`). |
+| `LD_GENERATE_MAP_FILE=YES` | Optional but recommended. Instructs the linker to write a link map file. Required for library attribution. |
+| `LD_MAP_FILE_PATH=~/Archives/YourApp-linkmap.txt` | Optional. Path for the link map. If omitted, Xcode writes it to a default path in DerivedData. |
 | `STRIP_INSTALLED_PRODUCT=NO` | **Required.** Keeps function symbols in the binary. Without this, all function lists will be empty. |
 | `CODE_SIGNING_ALLOWED=NO` | Skips code signing — not needed for analysis builds. |
 | `CODE_SIGN_IDENTITY=""` | Clears any signing identity. |
